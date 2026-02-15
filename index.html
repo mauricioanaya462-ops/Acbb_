@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title></title>
+
+<style>
+html,body{
+  margin:0;
+  padding:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:#000;
+  font-family:Arial;
+}
+
+#mensaje{
+  position:fixed;
+  top:20px;
+  left:50%;
+  transform:translateX(-50%);
+  font-size:26px;
+  color:#ff00ff;
+  text-shadow:0 0 40px #ff00ff,0 0 80px #ff66ff;
+  z-index:10;
+}
+
+#btn{
+  position:fixed;
+  bottom:25px;
+  left:50%;
+  transform:translateX(-50%);
+  padding:14px 30px;
+  border:none;
+  border-radius:30px;
+  background:linear-gradient(45deg,#ff00ff,#ff66ff);
+  color:white;
+  font-size:20px;
+  box-shadow:0 0 50px #ff00ff,0 0 90px #ff66ff;
+  z-index:10;
+  cursor:pointer;
+}
+
+canvas{display:block;}
+</style>
+</head>
+
+<body>
+
+<div id="mensaje">Mejool</div>
+<button id="btn">Tocaa Aquii </button>
+
+<audio id="musica" loop>
+  <source src="Theweeknd.mp3" type="audio/mpeg">
+</audio>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+
+// ================== ESCENA ==================
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x000000, 0.0003);
+
+// ================== CAMARA ==================
+const camera = new THREE.PerspectiveCamera(
+  70,
+  window.innerWidth/window.innerHeight,
+  0.1,
+  10000
+);
+
+camera.position.z = 1500;
+
+// ================== RENDER ==================
+const renderer = new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+
+document.body.appendChild(renderer.domElement);
+
+// ================== CONTROLES ==================
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+controls.minDistance = 1000;
+controls.maxDistance = 2400;
+
+// ================== TEXTURA FOTO ==================
+const loader = new THREE.TextureLoader();
+const foto = loader.load("Aby.jpg");
+
+// ================== CORAZON CON FOTO ==================
+const size = 1150;
+
+const planeGeo = new THREE.PlaneGeometry(size,size,64,64);
+
+const heartMat = new THREE.ShaderMaterial({
+
+  transparent:true,
+  side:THREE.DoubleSide,
+
+  uniforms:{
+    tex:{value:foto}
+  },
+
+  vertexShader:`
+    varying vec2 vUv;
+    void main(){
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+    }
+  `,
+
+  fragmentShader:`
+    uniform sampler2D tex;
+    varying vec2 vUv;
+
+    void main(){
+
+      vec2 p = vUv*2.0-1.0;
+
+      float x = p.x;
+      float y = p.y;
+
+      float a = x*x + y*y - 0.3;
+      float h = a*a*a - x*x*y*y*y;
+
+      if(h > 0.0) discard;
+
+      vec4 color = texture2D(tex,vUv);
+
+      gl_FragColor = color;
+    }
+  `
+});
+
+const heart = new THREE.Mesh(planeGeo, heartMat);
+scene.add(heart);
+
+// ================== CONTORNO NEON ==================
+const shape = new THREE.Shape();
+
+shape.moveTo(0,30);
+
+shape.bezierCurveTo(0,60,-50,60,-50,30);
+shape.bezierCurveTo(-50,0,0,-20,0,-40);
+shape.bezierCurveTo(0,-20,50,0,50,30);
+shape.bezierCurveTo(50,60,0,60,0,30);
+
+const outlineGeo = new THREE.ExtrudeGeometry(shape,{
+  depth:4,
+  bevelEnabled:false
+});
+
+outlineGeo.scale(10,10,10);
+
+const edgeGeo = new THREE.EdgesGeometry(outlineGeo);
+
+const edgeMat = new THREE.LineBasicMaterial({
+  color:0x00ccff,
+  transparent:true,
+  opacity:18600
+});
+
+const outline = new THREE.LineSegments(edgeGeo, edgeMat);
+scene.add(outline);
+
+// ================== ESTRELLAS ==================
+const starCount = 2000;
+
+const starPos = new Float32Array(starCount*3);
+const starVel = new Float32Array(starCount);
+
+for(let i=0;i<starCount;i++){
+
+  starPos[i*3]=(Math.random()-0.5)*8000;
+  starPos[i*3+1]=(Math.random()-0.5)*8000;
+  starPos[i*3+2]=-Math.random()*4000;
+
+  starVel[i]=5+Math.random()*12;
+}
+
+const starGeo = new THREE.BufferGeometry();
+starGeo.setAttribute("position",new THREE.BufferAttribute(starPos,3));
+
+const starMat = new THREE.PointsMaterial({
+  color:0xffffff,
+  size:5
+});
+
+const stars = new THREE.Points(starGeo,starMat);
+scene.add(stars);
+
+// ================== TEXTOS ==================
+const palabras=[
+"Baby","let me","tell the truth","yeah",
+"You know","what","I'm thinkin",
+"See it","in","your eyes",
+"I would die","for you",
+"","","","",""
+
+];
+const textos=[];
+
+function crearTexto(t){
+
+  const c=document.createElement("canvas");
+  c.width=1024;
+  c.height=256;
+
+  const ctx=c.getContext("2d");
+
+  ctx.font="bold 120px Arial";
+  ctx.textAlign="center";
+  ctx.textBaseline="middle";
+
+  ctx.shadowColor="#ff66ff";
+  ctx.shadowBlur=80;
+
+  ctx.fillStyle="#ff66ff";
+
+  ctx.fillText(t,512,128);
+
+  const tex=new THREE.CanvasTexture(c);
+
+  const mat=new THREE.SpriteMaterial({
+    map:tex,
+    transparent:true,
+    blending:THREE.AdditiveBlending
+  });
+
+  const s=new THREE.Sprite(mat);
+
+  s.scale.set(550,150,1);
+
+  return s;
+}
+
+for(let i=0;i<300;i++){
+
+  const s=crearTexto(
+    palabras[Math.floor(Math.random()*palabras.length)]
+  );
+
+  const r=900+Math.random()*2500;
+
+  const th=Math.random()*Math.PI*2;
+  const ph=Math.acos(Math.random()*2-1);
+
+  s.userData={r,th,ph,speed:0.001+Math.random()*0.002};
+
+  scene.add(s);
+  textos.push(s);
+}
+
+// ================== ANIMACION ==================
+function animate(){
+
+  requestAnimationFrame(animate);
+
+  const t=Date.now()*0.002;
+
+  // Giro
+  heart.rotation.y+=0.002;
+  outline.rotation.y+=0.002;
+
+  // Pulso contorno
+  const p=(Math.sin(t*4)+1)/2;
+  outline.material.opacity=0.4+p*0.6;
+
+  // Textos
+  textos.forEach(x=>{
+
+    x.userData.th+=x.userData.speed;
+
+    const r=x.userData.r;
+    const th=x.userData.th;
+    const ph=x.userData.ph;
+
+    x.position.x=r*Math.sin(ph)*Math.cos(th);
+    x.position.y=r*Math.cos(ph);
+    x.position.z=r*Math.sin(ph)*Math.sin(th);
+
+    x.lookAt(0,0,0);
+  });
+
+  // Estrellas
+  const p2=stars.geometry.attributes.position.array;
+
+  for(let i=0;i<starCount;i++){
+
+    p2[i*3+2]+=starVel[i];
+
+    if(p2[i*3+2]>camera.position.z){
+
+      p2[i*3]=(Math.random()-0.5)*8000;
+      p2[i*3+1]=(Math.random()-0.5)*8000;
+      p2[i*3+2]=-4000;
+    }
+  }
+
+  stars.geometry.attributes.position.needsUpdate=true;
+
+  controls.update();
+  renderer.render(scene,camera);
+}
+
+animate();
+
+// ================== RESIZE ==================
+window.addEventListener("resize",()=>{
+
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+
+  renderer.setSize(window.innerWidth,window.innerHeight);
+
+});
+
+// ================== AUDIO ==================
+document.getElementById("btn").onclick=()=>{
+
+  document.getElementById("musica").play();
+  document.getElementById("btn").style.display="none";
+
+};
+
+</script>
+</body>
+</html>
